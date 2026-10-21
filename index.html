@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>이모티콘 캔버스 템플릿 생성기</title>
+  <meta name="description" content="이모티콘을 그리기 전에 쓸 빈 캔버스 가이드 템플릿을 원하는 설정으로 만들어 원본 크기 PNG로 저장합니다.">
+  <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121318" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f5bd5'/%3E%3Crect x='7' y='7' width='8' height='8' rx='1.5' fill='%23fff'/%3E%3Crect x='17' y='7' width='8' height='8' rx='1.5' fill='%23fff' opacity='.7'/%3E%3Crect x='7' y='17' width='8' height='8' rx='1.5' fill='%23fff' opacity='.7'/%3E%3Crect x='17' y='17' width='8' height='8' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="currentColor"/>
+          <rect x="7" y="7" width="8" height="8" rx="1.5" fill="#fff"/>
+          <rect x="17" y="7" width="8" height="8" rx="1.5" fill="#fff" opacity=".7"/>
+          <rect x="7" y="17" width="8" height="8" rx="1.5" fill="#fff" opacity=".7"/>
+          <rect x="17" y="17" width="8" height="8" rx="1.5" fill="#fff"/>
+        </svg>
+        <div class="brand-text">
+          <h1>이모티콘 캔버스 템플릿</h1>
+          <p>빈 가이드 캔버스를 만들어 원본 크기 PNG로 저장해요</p>
+        </div>
+      </div>
+      <button type="button" class="btn-ghost" id="resetBtn" title="모든 설정을 처음 값으로 되돌려요">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 3.5v3.2h3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        기본값으로
+      </button>
+    </header>
+
+    <main class="workspace">
+      <form class="panel" id="settings" autocomplete="off" novalidate>
+        <div class="panel-scroll">
+
+          <!-- 박스 크기 -->
+          <section class="group">
+            <div class="group-head"><h2>박스 크기</h2></div>
+            <div class="fields two">
+              <label class="field">
+                <span class="field-label">가로</span>
+                <span class="input"><input type="number" name="boxW" min="1" max="16384" step="1" inputmode="numeric"><i>px</i></span>
+              </label>
+              <label class="field">
+                <span class="field-label">세로</span>
+                <span class="input"><input type="number" name="boxH" min="1" max="16384" step="1" inputmode="numeric"><i>px</i></span>
+              </label>
+            </div>
+            <div class="chips" aria-label="자주 쓰는 크기">
+              <button type="button" class="chip" data-box="360x360">360 × 360</button>
+              <button type="button" class="chip" data-box="1080x1080">1080 × 1080</button>
+              <button type="button" class="chip chip-icon" id="swapBox" title="가로·세로 바꾸기" aria-label="가로·세로 바꾸기">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4 3 7l3 3M3 7h11M14 10l3 3-3 3M17 13H6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </section>
+
+          <!-- 박스 개수 -->
+          <section class="group">
+            <div class="group-head"><h2>박스 개수</h2><span class="group-meta" id="countMeta"></span></div>
+            <div class="fields two">
+              <label class="field">
+                <span class="field-label">가로 개수</span>
+                <span class="input"><input type="number" name="cols" min="1" max="500" step="1" inputmode="numeric"><i>개</i></span>
+              </label>
+              <label class="field">
+                <span class="field-label">세로 개수</span>
+                <span class="input"><input type="number" name="rows" min="1" max="500" step="1" inputmode="numeric"><i>개</i></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- 간격 -->
+          <section class="group">
+            <div class="group-head"><h2>간격</h2></div>
+            <div class="fields two">
+              <label class="field">
+                <span class="field-label">가로 간격</span>
+                <span class="input"><input type="number" name="gapX" min="0" max="4000" step="1" inputmode="numeric"><i>px</i></span>
+              </label>
+              <label class="field">
+                <span class="field-label">세로 간격</span>
+                <span class="input"><input type="number" name="gapY" min="0" max="4000" step="1" inputmode="numeric"><i>px</i></span>
+              </label>
+              <label class="field">
+                <span class="field-label">바깥 여백</span>
+                <span class="input"><input type="number" name="pad" min="0" max="4000" step="1" inputmode="numeric"><i>px</i></span>
+              </label>
+            </div>
+            <p class="hint">바깥 여백은 캔버스 가장자리와 첫 박스 사이의 거리예요.</p>
+          </section>
+
+          <!-- 테두리 -->
+          <section class="group" data-toggle="borderOn">
+            <div class="group-head">
+              <h2>테두리</h2>
+              <label class="switch"><input type="checkbox" name="borderOn" role="switch"><span class="sr-only">테두리 켜기</span></label>
+            </div>
+            <div class="group-body">
+              <div class="fields two">
+                <label class="field">
+                  <span class="field-label">두께</span>
+                  <span class="input"><input type="number" name="borderW" min="1" max="500" step="1" inputmode="numeric"><i>px</i></span>
+                </label>
+                <div class="field">
+                  <span class="field-label">색</span>
+                  <span class="color-input"><input type="color" name="borderColor" aria-label="테두리 색"><input type="text" class="hex" data-hex-for="borderColor" maxlength="7" spellcheck="false" aria-label="테두리 색 코드"></span>
+                </div>
+              </div>
+              <div class="field">
+                <span class="field-label">위치</span>
+                <div class="segmented" role="radiogroup" aria-label="테두리 위치">
+                  <label><input type="radio" name="borderPos" value="inside"><span>안쪽</span></label>
+                  <label><input type="radio" name="borderPos" value="center"><span>가운데</span></label>
+                  <label><input type="radio" name="borderPos" value="outside"><span>바깥쪽</span></label>
+                </div>
+              </div>
+              <p class="hint" id="borderHint"></p>
+            </div>
+          </section>
+
+          <!-- 배경색 -->
+          <section class="group">
+            <div class="group-head"><h2>배경색</h2></div>
+            <div class="bg-options" role="radiogroup" aria-label="배경색">
+              <label class="bg-opt"><input type="radio" name="bg" value="white"><span class="sw sw-white"></span><span class="bg-name">흰색</span></label>
+              <label class="bg-opt"><input type="radio" name="bg" value="transparent"><span class="sw sw-clear"></span><span class="bg-name">투명</span></label>
+              <label class="bg-opt"><input type="radio" name="bg" value="indigo"><span class="sw sw-indigo"></span><span class="bg-name">인디고</span></label>
+              <label class="bg-opt"><input type="radio" name="bg" value="custom"><span class="sw sw-custom" id="customSwatch"></span><span class="bg-name">직접</span></label>
+            </div>
+            <div class="field custom-row" id="customRow">
+              <span class="field-label">배경 색</span>
+              <span class="color-input"><input type="color" name="bgCustom" aria-label="배경 색"><input type="text" class="hex" data-hex-for="bgCustom" maxlength="7" spellcheck="false" aria-label="배경 색 코드"></span>
+            </div>
+          </section>
+
+          <!-- 톰보 -->
+          <section class="group" data-toggle="tomboOn">
+            <div class="group-head">
+              <h2>톰보 <small>재단선</small></h2>
+              <label class="switch"><input type="checkbox" name="tomboOn" role="switch"><span class="sr-only">톰보 켜기</span></label>
+            </div>
+            <div class="group-body">
+              <div class="fields two">
+                <label class="field">
+                  <span class="field-label">길이</span>
+                  <span class="input"><input type="number" name="tomboLen" min="1" max="2000" step="1" inputmode="numeric"><i>px</i></span>
+                </label>
+                <label class="field">
+                  <span class="field-label">모서리에서 띄우기</span>
+                  <span class="input"><input type="number" name="tomboOffset" min="0" max="2000" step="1" inputmode="numeric"><i>px</i></span>
+                </label>
+                <label class="field">
+                  <span class="field-label">두께</span>
+                  <span class="input"><input type="number" name="tomboW" min="1" max="200" step="1" inputmode="numeric"><i>px</i></span>
+                </label>
+                <div class="field">
+                  <span class="field-label">색</span>
+                  <span class="color-input"><input type="color" name="tomboColor" aria-label="톰보 색"><input type="text" class="hex" data-hex-for="tomboColor" maxlength="7" spellcheck="false" aria-label="톰보 색 코드"></span>
+                </div>
+              </div>
+              <p class="hint" id="tomboHint">박스 모서리 바깥, 간격과 바깥 여백에만 그려져 박스 안을 침범하지 않아요.</p>
+            </div>
+          </section>
+
+          <!-- 가이드선 -->
+          <section class="group">
+            <div class="group-head"><h2>가이드선</h2></div>
+
+            <div class="sub" data-toggle="marginOn">
+              <div class="sub-head">
+                <h3>안쪽 여백선</h3>
+                <label class="switch"><input type="checkbox" name="marginOn" role="switch"><span class="sr-only">안쪽 여백선 켜기</span></label>
+              </div>
+              <div class="group-body">
+                <div class="fields two">
+                  <label class="field">
+                    <span class="field-label">여백</span>
+                    <span class="input"><input type="number" name="margin" min="0" max="8000" step="1" inputmode="numeric"><i>px</i></span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">두께</span>
+                    <span class="input"><input type="number" name="marginW" min="1" max="200" step="1" inputmode="numeric"><i>px</i></span>
+                  </label>
+                  <div class="field">
+                    <span class="field-label">색</span>
+                    <span class="color-input"><input type="color" name="marginColor" aria-label="여백선 색"><input type="text" class="hex" data-hex-for="marginColor" maxlength="7" spellcheck="false" aria-label="여백선 색 코드"></span>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">선 모양</span>
+                    <div class="segmented" role="radiogroup" aria-label="여백선 모양">
+                      <label><input type="radio" name="marginStyle" value="solid"><span>실선</span></label>
+                      <label><input type="radio" name="marginStyle" value="dashed"><span>점선</span></label>
+                    </div>
+                  </div>
+                </div>
+                <p class="hint" id="marginHint"></p>
+              </div>
+            </div>
+
+            <div class="sub" data-toggle="crossOn">
+              <div class="sub-head">
+                <h3>십자·등분 기준선</h3>
+                <label class="switch"><input type="checkbox" name="crossOn" role="switch"><span class="sr-only">십자·등분 기준선 켜기</span></label>
+              </div>
+              <div class="group-body">
+                <div class="chips chips-top" aria-label="자주 쓰는 등분">
+                  <button type="button" class="chip" data-div="2">십자</button>
+                  <button type="button" class="chip" data-div="3">3등분</button>
+                  <button type="button" class="chip" data-div="4">4등분</button>
+                </div>
+                <div class="fields two">
+                  <label class="field">
+                    <span class="field-label">가로 나누기</span>
+                    <span class="input"><input type="number" name="crossDivX" min="1" max="20" step="1" inputmode="numeric"><i>등분</i></span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">세로 나누기</span>
+                    <span class="input"><input type="number" name="crossDivY" min="1" max="20" step="1" inputmode="numeric"><i>등분</i></span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">두께</span>
+                    <span class="input"><input type="number" name="crossW" min="1" max="200" step="1" inputmode="numeric"><i>px</i></span>
+                  </label>
+                  <div class="field">
+                    <span class="field-label">색</span>
+                    <span class="color-input"><input type="color" name="crossColor" aria-label="기준선 색"><input type="text" class="hex" data-hex-for="crossColor" maxlength="7" spellcheck="false" aria-label="기준선 색 코드"></span>
+                  </div>
+                  <div class="field span-2">
+                    <span class="field-label">선 모양</span>
+                    <div class="segmented" role="radiogroup" aria-label="기준선 모양">
+                      <label><input type="radio" name="crossStyle" value="solid"><span>실선</span></label>
+                      <label><input type="radio" name="crossStyle" value="dashed"><span>점선</span></label>
+                    </div>
+                  </div>
+                </div>
+                <p class="hint" id="crossHint"></p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- 저장 -->
+        <div class="export-bar">
+          <div class="total">
+            <span class="total-label">최종 캔버스</span>
+            <span class="total-value"><strong id="totalSize">0 × 0</strong> px</span>
+          </div>
+          <p class="notice" id="notice" hidden></p>
+          <div class="export-row">
+            <label class="filename">
+              <span class="sr-only">파일 이름</span>
+              <input type="text" name="fileName" maxlength="80" spellcheck="false" placeholder="template">
+              <i>.png</i>
+            </label>
+            <button type="button" class="btn-primary" id="saveBtn">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>PNG 저장</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <section class="preview" id="preview" aria-label="미리보기">
+        <canvas id="view"></canvas>
+        <div class="badge" id="sizeBadge"></div>
+        <div class="zoombar" role="toolbar" aria-label="미리보기 배율">
+          <button type="button" id="zoomOut" title="축소" aria-label="축소"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <span class="zoom-label" id="zoomLabel">100%</span>
+          <button type="button" id="zoomIn" title="확대" aria-label="확대"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M10 5v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <span class="zoom-sep"></span>
+          <button type="button" id="zoomFit" class="text-btn" title="화면에 맞추기 (더블클릭)">맞춤</button>
+          <button type="button" id="zoom100" class="text-btn" title="원본 크기로 보기">1:1</button>
+        </div>
+        <p class="preview-hint">드래그로 이동 · 휠로 확대/축소 · 더블클릭으로 맞춤</p>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
