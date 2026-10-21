@@ -8,6 +8,8 @@
   const MAX_SIDE = 16384;            // 데스크톱 브라우저 공통 캔버스 한 변 한도
   const MOBILE_SAFE_AREA = 16777216; // iPhone·iPad Safari 캔버스 면적 한도 (4096²)
   const STORE_KEY = 'emoticon-canvas-template:v1';
+  const DEFAULT_FILE_NAME = 'template';
+  const SHARE_TITLE = '이모티콘 캔버스 템플릿';
   const MIN_ZOOM = 0.002;
   const MAX_ZOOM = 32;
 
@@ -22,7 +24,7 @@
     tomboOn: false, tomboLen: 16, tomboOffset: 0, tomboW: 1, tomboColor: '#000000',
     marginOn: true, margin: 20, marginW: 1, marginColor: '#5BC0F8', marginStyle: 'dashed',
     crossOn: false, crossDivX: 2, crossDivY: 2, crossW: 1, crossColor: '#FF6B9A', crossStyle: 'dashed',
-    fileName: 'template',
+    fileName: '', // 비어 있으면 DEFAULT_FILE_NAME으로 저장
   };
 
   const NUM_LIMITS = {
@@ -80,7 +82,7 @@
     const s = { ...DEFAULTS };
     if (!raw || typeof raw !== 'object') return s;
     for (const k of Object.keys(DEFAULTS)) {
-      if (!(k in raw)) continue;
+      if (!(k in raw) || k === 'fileName') continue; // 파일 이름은 그때그때 정한다
       const v = raw[k];
       if (k in NUM_LIMITS) {
         const n = parseNum(v, NUM_LIMITS[k]);
@@ -109,11 +111,47 @@
   function saveStateSoon() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* 저장 불가 환경 */ }
+      const { fileName, ...settings } = state;
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch { /* 저장 불가 환경 */ }
     }, 300);
   }
 
+  // 설정 링크: 기본값과 다른 항목만 주소 # 뒤에 담는다 (예: #v=1&boxW=1080&crossDivX=3)
+  function encodeSettings(s) {
+    const p = new URLSearchParams({ v: '1' });
+    for (const k of Object.keys(DEFAULTS)) {
+      if (k === 'fileName' || s[k] === DEFAULTS[k]) continue;
+      const v = s[k];
+      p.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : COLOR_KEYS.includes(k) ? v.slice(1) : String(v));
+    }
+    return p.toString();
+  }
+
+  function decodeSettings(hash) {
+    const p = new URLSearchParams(String(hash).replace(/^#/, ''));
+    if (p.get('v') !== '1') return null;
+    const raw = {};
+    for (const [k, v] of p) {
+      if (!(k in DEFAULTS)) continue;
+      raw[k] = typeof DEFAULTS[k] === 'boolean' ? v === '1' : v;
+    }
+    return sanitize(raw);
+  }
+
+  function shareUrl() {
+    return location.origin + location.pathname + '#' + encodeSettings(state);
+  }
+
   let state = loadState();
+  let openedFromLink = false;
+  {
+    const shared = decodeSettings(location.hash);
+    if (shared) {
+      state = shared;
+      openedFromLink = true;
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // 그리기
@@ -538,7 +576,12 @@
     notice.hidden = !status;
     notice.textContent = status ? status.text : '';
     notice.classList.toggle('is-error', isError);
-    $('#saveBtn').disabled = isError || saving;
+    $('#saveBtn').disabled = isError || busy;
+    $('#shareBtn').disabled = busy;
+
+    const name = cleanName(s.fileName);
+    $('#nameHint').textContent = name ? `${name}.png로 저장돼요` : `비워 두면 ${DEFAULT_FILE_NAME}.png`;
+    $('#clearName').hidden = !s.fileName;
 
     const count = s.cols * s.rows;
     $('#countMeta').textContent = `총 ${fmt(count)}칸`;
@@ -636,6 +679,7 @@
         if (k === 'bgCustom') state.bg = 'custom';
       } else {
         state[k] = el.value;
+        if (k === 'fileName') { updateUI(); return; } // 그림에는 영향 없음
       }
     }
     if (state.bg === 'custom') form.querySelector('input[name="bg"][value="custom"]').checked = true;
@@ -649,7 +693,7 @@
     else if (el.name === 'fileName') {
       state.fileName = cleanName(el.value);
       el.value = state.fileName;
-      saveStateSoon();
+      updateUI();
     }
   }
   form.addEventListener('change', (e) => normalizeField(e.target));
@@ -697,18 +741,82 @@
     showToast('기본값으로 되돌렸어요');
   });
 
+  $('#clearName').addEventListener('click', () => {
+    state.fileName = '';
+    const input = form.elements.fileName;
+    input.value = '';
+    input.focus();
+    updateUI();
+  });
+
+  // 다른 설정 링크를 같은 탭 주소창에 붙여 넣은 경우
+  window.addEventListener('hashchange', () => {
+    const shared = decodeSettings(location.hash);
+    if (!shared) return;
+    shared.fileName = state.fileName;
+    state = shared;
+    history.replaceState(null, '', location.pathname + location.search);
+    writeForm();
+    view.fit = true;
+    changed();
+    showToast('링크의 설정을 불러왔어요');
+  });
+
   // ---------------------------------------------------------------------------
   // PNG 저장
   // ---------------------------------------------------------------------------
 
-  let saving = false;
+  let busy = false;
 
-  function setBusy(busy) {
+  // what: 'save' | 'share' — 어느 버튼에 진행 표시를 할지
+  function setBusy(on, what) {
+    busy = on;
     const btn = $('#saveBtn');
-    btn.classList.toggle('is-busy', busy);
-    btn.querySelector('span').textContent = busy ? '만드는 중…' : 'PNG 저장';
+    btn.classList.toggle('is-busy', on && what === 'save');
+    btn.querySelector('span').textContent = on && what === 'save' ? '만드는 중…' : 'PNG 저장';
+    $('#shareBtn').classList.toggle('is-busy', on && what === 'share');
     updateUI();
   }
+
+  const outputName = () => (cleanName(state.fileName) || DEFAULT_FILE_NAME) + '.png';
+
+  // 원본 크기 PNG를 만든다. 실패하면 예외를 던진다
+  async function renderPNG() {
+    const { W, H } = measure(state);
+    const canvas = document.createElement('canvas');
+    try {
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('2D 컨텍스트를 만들 수 없음');
+      drawTemplate(ctx, state, null, 0);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+      if (!blob) throw new Error('PNG를 만들 수 없음');
+      return blob;
+    } finally {
+      canvas.width = 0; // 큰 캔버스 메모리를 바로 돌려준다
+      canvas.height = 0;
+    }
+  }
+
+  const TOO_BIG_TEXT = '이 브라우저에서는 이 크기의 이미지를 만들 수 없어요. 크기를 줄이거나 PC의 Chrome·Edge·Firefox에서 시도해 주세요.';
+
+  // 크기 한도를 넘었으면 안내하고 false
+  function checkExportable() {
+    const { W, H } = measure(state);
+    const status = sizeStatus(W, H);
+    if (status?.level === 'error') {
+      showToast(status.text, true);
+      return false;
+    }
+    return true;
+  }
+
+  // 버튼 상태가 화면에 먼저 반영되도록 한 프레임 쉰다 (탭이 가려져 프레임이 멈춰도 넘어가게 시간 제한을 둔다)
+  const nextFrame = () => new Promise((r) => {
+    requestAnimationFrame(() => setTimeout(r, 0));
+    setTimeout(r, 100);
+  });
 
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
@@ -722,43 +830,150 @@
   }
 
   async function savePNG() {
-    if (saving) return;
-    const { W, H } = measure(state);
-    const status = sizeStatus(W, H);
-    if (status?.level === 'error') {
-      showToast(status.text, true);
-      return;
-    }
-
-    saving = true;
-    setBusy(true);
-    // 버튼 상태가 화면에 먼저 반영되도록 한 프레임 쉰다
-    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-
-    const canvas = document.createElement('canvas');
+    if (busy || !checkExportable()) return;
+    setBusy(true, 'save');
+    await nextFrame();
     try {
-      canvas.width = W;
-      canvas.height = H;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('2D 컨텍스트를 만들 수 없음');
-      drawTemplate(ctx, state, null, 0);
-      const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
-      if (!blob) throw new Error('PNG를 만들 수 없음');
-      const name = (cleanName(state.fileName) || 'template') + '.png';
+      const blob = await renderPNG();
+      const name = outputName();
+      const { W, H } = measure(state);
       download(blob, name);
       showToast(`${name} 저장 완료 · ${fmt(W)} × ${fmt(H)} px`);
     } catch (err) {
       console.error(err);
-      showToast('이 브라우저에서는 이 크기의 이미지를 만들 수 없어요. 크기를 줄이거나 PC의 Chrome·Edge·Firefox에서 시도해 주세요.', true);
+      showToast(TOO_BIG_TEXT, true);
     } finally {
-      canvas.width = 0; // 큰 캔버스 메모리를 바로 돌려준다
-      canvas.height = 0;
-      saving = false;
       setBusy(false);
     }
   }
 
   $('#saveBtn').addEventListener('click', savePNG);
+
+  // ---------------------------------------------------------------------------
+  // 공유 (서버 없이 기기 공유창·클립보드·메일 앱을 쓴다)
+  // ---------------------------------------------------------------------------
+
+  const shareBtn = $('#shareBtn');
+  const shareMenu = $('#shareMenu');
+
+  const canShareFiles = (() => {
+    try {
+      return !!navigator.canShare && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] });
+    } catch {
+      return false;
+    }
+  })();
+  $('#shareImageItem').hidden = !canShareFiles;
+  $('#shareLinkItem').hidden = !navigator.share;
+
+  function summaryText() {
+    const s = state;
+    const { W, H } = measure(s);
+    return `${fmt(W)} × ${fmt(H)} px 템플릿 (박스 ${s.boxW}×${s.boxH}, ${s.cols}×${s.rows}칸)`;
+  }
+
+  function openShareMenu(open) {
+    shareMenu.hidden = !open;
+    shareBtn.setAttribute('aria-expanded', String(open));
+    if (open) shareMenu.querySelector('button:not([hidden])')?.focus();
+  }
+
+  shareBtn.addEventListener('click', () => openShareMenu(shareMenu.hidden));
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!shareMenu.hidden && !shareMenu.contains(e.target) && !shareBtn.contains(e.target)) openShareMenu(false);
+  });
+
+  shareMenu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      openShareMenu(false);
+      shareBtn.focus();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const items = [...shareMenu.querySelectorAll('button:not([hidden])')];
+      const i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    }
+  });
+
+  shareMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-share]');
+    if (!item) return;
+    openShareMenu(false);
+    ({ image: shareImage, link: shareLink, copy: copyLink, mail: mailLink })[item.dataset.share]();
+  });
+
+  // 공유창은 클릭 직후에만 열 수 있어서, 큰 이미지를 만드느라 늦어지면 한 번 더 눌러야 한다.
+  // 그때 다시 만들지 않도록 마지막 결과를 설정과 함께 기억해 둔다
+  let prepared = null; // { key, file }
+
+  async function shareImage() {
+    if (busy) return;
+    const key = JSON.stringify(state);
+    let file = prepared?.key === key ? prepared.file : null;
+    if (!file) {
+      if (!checkExportable()) return;
+      setBusy(true, 'share');
+      await nextFrame();
+      try {
+        file = new File([await renderPNG()], outputName(), { type: 'image/png' });
+        prepared = { key, file };
+      } catch (err) {
+        console.error(err);
+        showToast(TOO_BIG_TEXT, true);
+        return;
+      } finally {
+        setBusy(false);
+      }
+    }
+    try {
+      await navigator.share({ files: [file], title: SHARE_TITLE });
+    } catch (err) {
+      if (err.name === 'AbortError') return; // 사용자가 공유창을 닫음
+      if (err.name === 'NotAllowedError') {
+        showToast('이미지가 준비됐어요. 공유 → 이미지 공유를 한 번 더 눌러 주세요.');
+        return;
+      }
+      console.error(err);
+      showToast('공유하지 못했어요. PNG로 저장한 뒤 직접 보내 주세요.', true);
+    }
+  }
+
+  async function shareLink() {
+    try {
+      await navigator.share({ title: SHARE_TITLE, text: summaryText(), url: shareUrl() });
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      copyLink();
+    }
+  }
+
+  async function copyLink() {
+    const url = shareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // 클립보드 API를 못 쓰는 환경용
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      if (!ok) {
+        window.prompt('아래 링크를 복사해 주세요', url);
+        return;
+      }
+    }
+    showToast('설정 링크를 복사했어요. 원하는 곳에 붙여 넣어 보내세요.');
+  }
+
+  function mailLink() {
+    const body = `${summaryText()}\n아래 링크를 열면 같은 설정의 템플릿을 만들 수 있어요.\n\n${shareUrl()}`;
+    location.href = `mailto:?subject=${encodeURIComponent(SHARE_TITLE)}&body=${encodeURIComponent(body)}`;
+  }
 
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
@@ -790,6 +1005,10 @@
   writeForm();
   updateUI();
   onPreviewResize();
+  if (openedFromLink) {
+    saveStateSoon();
+    showToast('공유받은 설정을 불러왔어요');
+  }
 
   // 테스트·디버깅용 훅
   window.__template = { drawTemplate, measure, get state() { return state; } };
