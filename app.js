@@ -337,8 +337,11 @@
     const { W, H } = measure(state);
     const narrow = cssW < 600;
     const side = narrow ? 16 : 40;
-    const top = narrow ? 48 : 60;
     const bottom = narrow ? 56 : 72;
+    // 위쪽 안내 상자가 떠 있으면 그 아래부터 캔버스를 놓는다
+    const notice = $('#notice');
+    const noticeH = notice.hidden ? 0 : notice.offsetTop + notice.offsetHeight;
+    const top = Math.max(narrow ? 16 : 32, noticeH + 12);
     const availW = Math.max(1, cssW - side * 2);
     const availH = Math.max(1, cssH - top - bottom);
     view.scale = clamp(Math.min(availW / W, availH / H), MIN_ZOOM, 8);
@@ -528,9 +531,11 @@
   // ---------------------------------------------------------------------------
 
   const form = $('#settings');
+  const nameInput = $('#fileName'); // 상단바에 있어 설정 폼 밖에 있다
   const hexInput = (key) => form.querySelector(`[data-hex-for="${key}"]`);
 
   function writeForm() {
+    nameInput.value = state.fileName;
     for (const el of form.elements) {
       if (el.dataset.hexFor) { el.value = state[el.dataset.hexFor]; continue; }
       const k = el.name;
@@ -583,9 +588,7 @@
     $('#nameHint').textContent = name ? `${name}.png로 저장돼요` : `비워 두면 ${DEFAULT_FILE_NAME}.png`;
     $('#clearName').hidden = !s.fileName;
 
-    const count = s.cols * s.rows;
-    $('#countMeta').textContent = `총 ${fmt(count)}칸`;
-    $('#sizeBadge').innerHTML = `<b>${fmt(W)} × ${fmt(H)}</b> px · ${fmt(count)}칸`;
+    $('#countMeta').textContent = `총 ${fmt(s.cols * s.rows)}칸`;
 
     for (const g of form.querySelectorAll('[data-toggle]')) {
       g.classList.toggle('is-off', !s[g.dataset.toggle]);
@@ -679,7 +682,6 @@
         if (k === 'bgCustom') state.bg = 'custom';
       } else {
         state[k] = el.value;
-        if (k === 'fileName') { updateUI(); return; } // 그림에는 영향 없음
       }
     }
     if (state.bg === 'custom') form.querySelector('input[name="bg"][value="custom"]').checked = true;
@@ -690,7 +692,7 @@
   function normalizeField(el) {
     if (el.dataset.hexFor) el.value = state[el.dataset.hexFor];
     else if (el.type === 'number' && el.name in state) el.value = String(state[el.name]);
-    else if (el.name === 'fileName') {
+    else if (el === nameInput) {
       state.fileName = cleanName(el.value);
       el.value = state.fileName;
       updateUI();
@@ -698,12 +700,24 @@
   }
   form.addEventListener('change', (e) => normalizeField(e.target));
 
-  // Enter: 숫자 칸에서는 값만 정리하고, 파일 이름 칸에서는 저장한다
+  // Enter: 숫자 칸에서는 값만 정리한다
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const el = document.activeElement;
     if (el && form.contains(el)) normalizeField(el);
-    if (el && el.name === 'fileName') savePNG();
+  });
+
+  // 파일 이름: 그림에는 영향이 없고, Enter로 바로 저장한다
+  nameInput.addEventListener('input', () => {
+    state.fileName = nameInput.value;
+    updateUI();
+  });
+  nameInput.addEventListener('change', () => normalizeField(nameInput));
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return; // 한글 조합 중 Enter는 무시
+    e.preventDefault();
+    normalizeField(nameInput);
+    savePNG();
   });
 
   for (const chip of form.querySelectorAll('[data-box]')) {
@@ -743,9 +757,8 @@
 
   $('#clearName').addEventListener('click', () => {
     state.fileName = '';
-    const input = form.elements.fileName;
-    input.value = '';
-    input.focus();
+    nameInput.value = '';
+    nameInput.focus();
     updateUI();
   });
 
@@ -979,7 +992,7 @@
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
       const el = document.activeElement;
-      if (el && form.contains(el)) normalizeField(el);
+      if (el && (form.contains(el) || el === nameInput)) normalizeField(el);
       savePNG();
     }
   });
